@@ -297,7 +297,7 @@
 <div id="overlay"><div class="spinner"></div><p class="overlay-text">Enviando para a planilha...</p></div>
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
 const LOJAS = {
   'CB': { nome: 'Campo Bom',   prefixo: 'CB' },
@@ -616,6 +616,7 @@ async function testarUrl(cod) {
 // ── SCANNER QR (config: ler URL do Apps Script) ──
 let qrStream = null, qrLoop = null, qrCodAlvo = '';
 async function abrirScannerQR(cod) {
+  if (typeof jsQR === 'undefined') { toast('Biblioteca de leitura QR não carregou (sem internet?)', 'error'); return; }
   qrCodAlvo = cod;
   document.getElementById('qr-title').textContent = 'Escanear QR — ' + (LOJAS[cod] ? LOJAS[cod].nome : cod);
   document.getElementById('qr-overlay').classList.add('show');
