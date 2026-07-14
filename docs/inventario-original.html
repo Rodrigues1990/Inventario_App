@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Inventário</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #242424; --border: #2e2e2e;
+    --accent: #00e5a0; --accent-dim: #00e5a020; --accent-dark: #009e6e;
+    --text: #f0f0f0; --text-muted: #888; --danger: #ff4d4d; --warning: #ffb347;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100dvh; display: flex; flex-direction: column; }
+  .screen { display: none; flex-direction: column; min-height: 100dvh; }
+  .screen.active { display: flex; }
+
+  /* HEADER */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .header-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-user { font-size: 12px; color: var(--text-muted); font-family: var(--mono); }
+
+  /* LOGIN */
+  #screen-login { justify-content: center; align-items: center; padding: 40px 24px; }
+  .login-logo { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px; }
+  .login-title { font-size: 26px; font-weight: 600; margin-bottom: 4px; }
+  .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 40px; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
+
+  label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 6px; }
+  input[type=text], input[type=password], select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 14px; font-size: 16px; font-family: var(--sans); color: var(--text);
+    outline: none; transition: border-color 0.15s; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  .btn { width: 100%; padding: 15px; background: var(--accent); color: #0a0a0a; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; font-family: var(--sans); cursor: pointer; transition: background 0.15s, transform 0.1s; letter-spacing: 0.02em; }
+  .btn:active { transform: scale(0.98); background: var(--accent-dark); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 14px; padding: 12px; margin-top: 4px; }
+
+  /* PAINEL FIXO */
+  #painel-fixo { position: sticky; top: 49px; z-index: 15; background: #0a0a0a; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 16px; }
+  #painel-lote-mini { font-family: var(--mono); font-size: 12px; color: var(--text-muted); min-width: 80px; flex-shrink: 0; }
+  #painel-lote-mini span { color: var(--accent); font-weight: 600; }
+  #painel-ultimo { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
+  #painel-ultimo-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+  #painel-ultimo-codigo { font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--text); word-break: break-all; }
+  #painel-ultimo-codigo.flash { color: var(--accent); }
+  #painel-contador { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  #painel-num { font-family: var(--mono); font-size: 32px; font-weight: 600; color: var(--accent); line-height: 1; }
+  #painel-num-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* MAIN CONTENT */
+  #screen-main { padding-bottom: 40px; }
+  .main-content { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .step-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .step-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-dim); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+  .step-num.done { background: var(--accent); color: #0a0a0a; }
+  .step-title { font-size: 14px; font-weight: 600; }
+  .step-body { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* CAMPO DE LOTE — digitável com indicador de foco */
+  .lote-input-wrap { position: relative; }
+  .lote-input-wrap input {
+    width: 100%; background: var(--surface2); border: 2px solid var(--border);
+    border-radius: 10px; padding: 14px 48px 14px 16px;
+    font-family: var(--mono); font-size: 22px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .lote-input-wrap input::placeholder { color: var(--text-muted); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; font-family: var(--sans); }
+  .lote-input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .lote-input-wrap input.lote-ok { border-color: var(--accent); }
+  .lote-status-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none; }
+
+  /* lista de códigos */
+  .codes-area { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; max-height: 200px; overflow-y: auto; padding: 6px; }
+  .code-item { display: flex; align-items: center; padding: 7px 10px; border-radius: 7px; }
+  .code-item:nth-child(odd) { background: #1e1e1e; }
+  .code-item.novo { animation: pisca 0.4s ease; }
+  @keyframes pisca { 0%,100% { background: #1e1e1e; } 50% { background: #00e5a030; } }
+  .code-num { font-size: 11px; color: var(--text-muted); font-family: var(--mono); min-width: 28px; }
+  .code-val { font-family: var(--mono); font-size: 13px; color: var(--text); flex: 1; padding: 0 8px; word-break: break-all; }
+  .code-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 0 4px; line-height: 1; border-radius: 4px; }
+  .code-del:active { color: var(--danger); }
+  .codes-empty { display: flex; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 13px; }
+  .codes-counter { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+  .codes-count { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+
+  .status-bar { background: var(--surface2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.ok { background: var(--accent); }
+  .status-dot.err { background: var(--danger); }
+  .status-dot.warn { background: var(--warning); }
+  .status-dot.idle { background: var(--text-muted); }
+
+  /* CONFIG */
+  #screen-config { padding-bottom: 40px; }
+  .config-content { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .config-info { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .config-info strong { color: var(--text); font-weight: 500; }
+  .config-loja-bloco { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .config-loja-titulo { font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+  .config-loja-url { font-size: 12px; color: var(--text-muted); font-family: var(--mono); word-break: break-all; }
+  .config-loja-url.configurada { color: var(--accent); }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 100px; font-size: 13px; font-weight: 500; white-space: nowrap; z-index: 999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { border-color: var(--accent); color: var(--accent); }
+  #toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* OVERLAY */
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 500; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+  #overlay.show { display: flex; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .overlay-text { font-size: 14px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="screen-login" class="screen active">
+  <p class="login-logo">Sistema de Inventário</p>
+  <h1 class="login-title">Entrar</h1>
+  <p class="login-sub">Identifique-se para iniciar a coleta</p>
+  <div class="login-card">
+    <div>
+      <label for="sel-loja">Loja</label>
+      <select id="sel-loja" onchange="onLojaChange()">
+        <option value="">Selecione a loja...</option>
+        <!-- ══ ADICIONAR LOJAS AQUI ══ -->
+        <option value="TA">Taquara (TA)</option>
+        <!-- ══════════════════════════ -->
+      </select>
+    </div>
+    <div>
+      <label for="inp-nome">Seu nome</label>
+      <input type="text" id="inp-nome" placeholder="Ex: Bruno" autocomplete="off" autocorrect="off">
+    </div>
+    <div id="url-aviso" style="display:none; background:#ff4d4d18; border:1px solid var(--danger); border-radius:10px; padding:12px; font-size:13px; color:var(--danger);">
+      Esta loja ainda não tem URL configurada. Configure antes de entrar.
+    </div>
+    <button class="btn" onclick="fazerLogin()">Entrar</button>
+    <button class="btn btn-outline" onclick="irConfig()" style="font-size:13px; padding:11px;">⚙ Configurar URLs das lojas</button>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div id="screen-main" class="screen">
+  <div class="header">
+    <span class="header-logo">Inventário</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="btn-pendentes-badge" onclick="irPendentes()" style="display:none;background:var(--danger);border:none;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;color:#fff;cursor:pointer;">⚠ <span id="badge-num">0</span> pendente(s)</button>
+      <span class="header-user" id="header-info">—</span>
+    </div>
+  </div>
+
+  <div id="painel-fixo">
+    <div id="painel-lote-mini">LOTE<br><span id="painel-lote-val">—</span></div>
+    <div id="painel-ultimo">
+      <div id="painel-ultimo-label">Último bipado</div>
+      <div id="painel-ultimo-codigo" style="color: var(--text-muted); font-style: italic; font-size:13px;">nenhum ainda</div>
+    </div>
+    <div id="painel-contador">
+      <div id="painel-num">0</div>
+      <div id="painel-num-label">itens</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <!-- Step 1: Lote -->
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num" id="step1-num">1</div>
+        <span class="step-title">Bipe ou digite o LOTE</span>
+      </div>
+      <div class="step-body">
+        <div class="lote-input-wrap">
+          <input
+            type="text" id="inp-lote"
+            placeholder="Bipe ou digite: IG-0001"
+            autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+            oninput="onLoteInput()"
+            onkeydown="onLoteKeydown(event)"
+            onfocus="onLoteFocus()"
+            onblur="onLoteBlur()"
+          >
+          <span class="lote-status-icon" id="lote-icon">📋</span>
+        </div>
+        <button class="btn btn-outline" onclick="confirmarLoteManual()" id="btn-confirmar-lote" style="font-size:13px; padding:10px; display:none;">
+          ✓ Confirmar lote
+        </button>
+        <button class="btn btn-outline" onclick="limparLote()" style="font-size:13px; padding:10px;">Limpar lote atual</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Produtos -->
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num" id="step2-num">2</div>
+        <span class="step-title">Bipe os produtos</span>
+      </div>
+      <div class="step-body">
+        <div class="codes-counter">
+          <span class="codes-count" id="codes-count">0 códigos</span>
+          <button class="btn btn-outline" onclick="limparCodigos()" style="width:auto; padding:6px 12px; font-size:12px; margin:0;">Limpar tudo</button>
+        </div>
+        <div class="codes-area" id="codes-area">
+          <div class="codes-empty">Nenhum código lido ainda</div>
+        </div>
+        <div class="status-bar" id="status-bar">
+          <div class="status-dot idle" id="status-dot"></div>
+          <span id="status-text">Toque para ativar o leitor</span>
+        </div>
+        <button class="btn btn-outline" onclick="ativarLeitor()" id="btn-ativar" style="font-size:14px; padding:13px;">
+          📡 Ativar leitor de barras
+        </button>
+      </div>
+    </div>
+
+    <button class="btn" onclick="enviarLote()" style="font-size:16px; padding:17px;">✓ Enviar lote</button>
+    <button class="btn btn-outline" onclick="sair()" style="font-size:13px; padding:11px;">Sair</button>
+  </div>
+</div>
+
+<!-- ═══ CONFIG ═══ -->
+<div id="screen-config" class="screen">
+  <div class="header">
+    <span class="header-logo">Configuração</span>
+    <button onclick="irLogin()" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;">← Voltar</button>
+  </div>
+  <div class="config-content">
+    <div class="config-info">
+      Cada loja tem sua própria planilha e URL do Apps Script. Configure a URL de cada loja abaixo.
+      A URL começa com <strong>https://script.google.com/macros/s/...</strong>
+    </div>
+
+    <!-- Blocos de URL por loja — gerados dinamicamente pelo JS -->
+    <div id="config-lojas"></div>
+
+    <div class="status-bar" id="config-status" style="display:none">
+      <div class="status-dot idle" id="config-dot"></div>
+      <span id="config-text">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PENDENTES ═══ -->
+<div id="screen-pendentes" class="screen">
+  <div class="header">
+    <span class="header-logo" style="color:var(--danger);">Lotes Pendentes</span>
+    <button onclick="irMain()" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;">← Voltar</button>
+  </div>
+  <div style="padding:20px;display:flex;flex-direction:column;gap:14px;padding-bottom:40px;">
+    <div style="background:var(--surface);border:1px solid var(--danger);border-radius:12px;padding:14px;font-size:13px;color:var(--text-muted);line-height:1.6;">
+      Estes lotes foram <strong style="color:var(--text)">salvos no celular</strong> mas ainda não chegaram à planilha. Verifique a conexão e reenvie.
+    </div>
+    <div id="lista-pendentes"></div>
+    <button class="btn" onclick="reenviarTodos()" id="btn-reenviar-todos" style="display:none;background:var(--danger);">
+      ↑ Reenviar todos
+    </button>
+  </div>
+</div>
+
+<!-- Input oculto para coletor bluetooth (produtos) -->
+<input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;opacity:0;height:1px;width:1px;top:-100px;">
+
+<div id="overlay"><div class="spinner"></div><p class="overlay-text">Enviando para a planilha...</p></div>
+<div id="toast"></div>
+
+<script>
+const LOJAS = {
+  'TA': { nome: 'Taquara',    prefixo: 'TA' }
+};
+
+let estado = {
+  loja: '', prefixo: '', nome: '', loteAtual: '', codigos: [],
+  loteConfirmado: false, leitorAtivo: false, bufferColetor: '', loteEmEdicao: false,
+  lotesEnviadosSessao: [], // lotes já enviados nesta sessão (alerta de duplicata)
+  ultimoEnter: 0,          // timestamp do último Enter (proteção duplo Enter)
+};
+
+function urlLoja(cod) { return localStorage.getItem('url_loja_' + cod) || ''; }
+function salvarUrlLoja(cod, url) { localStorage.setItem('url_loja_' + cod, url); }
+
+// ── FILA LOCAL DE PENDENTES ──
+const CHAVE_FILA = 'inventario_fila_pendentes';
+function carregarFila() { try { return JSON.parse(localStorage.getItem(CHAVE_FILA) || '[]'); } catch(e) { return []; } }
+function salvarFila(fila) { localStorage.setItem(CHAVE_FILA, JSON.stringify(fila)); }
+function adicionarNaFila(payload) {
+  const fila = carregarFila();
+  const item = { id: Date.now(), payload, tentativas: 0, salvoEm: new Date().toLocaleString('pt-BR') };
+  fila.push(item); salvarFila(fila); atualizarBadgePendentes(); return item.id;
+}
+function removerDaFila(id) { salvarFila(carregarFila().filter(i => i.id !== id)); atualizarBadgePendentes(); }
+function atualizarBadgePendentes() {
+  const n = carregarFila().length;
+  const b = document.getElementById('btn-pendentes-badge');
+  if (!b) return;
+  b.style.display = n > 0 ? 'inline-block' : 'none';
+  const el = document.getElementById('badge-num');
+  if (el) el.textContent = n;
+}
+async function tentarReenviar(item) {
+  const url = urlLoja(item.payload.loja);
+  if (!url) return false;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000); // timeout de 15s
+    const r = await fetch(url, { method: 'POST', body: JSON.stringify(item.payload), signal: ctrl.signal });
+    clearTimeout(timer);
+    return (await r.text()).includes('OK') || r.ok;
+  } catch(e) { return false; }
+}
+window.addEventListener('online', () => { toast('Conexão restaurada — reenviando...', 'success'); setTimeout(reenviarAutomatico, 1000); });
+async function reenviarAutomatico() {
+  const fila = carregarFila();
+  if (fila.length === 0) return;
+  for (const item of fila) { if (await tentarReenviar(item)) removerDaFila(item.id); }
+  const r = carregarFila().length;
+  if (r === 0) toast('Todos os pendentes enviados!', 'success');
+  else toast(r + ' lote(s) ainda pendentes', 'error');
+}
+
+// ── NAVEGAÇÃO ──
+function mostrarTela(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function irLogin()     { mostrarTela('screen-login'); }
+function irMain()      { mostrarTela('screen-main'); }
+function irConfig()    { renderizarConfig(); mostrarTela('screen-config'); }
+function irPendentes() { renderizarPendentes(); mostrarTela('screen-pendentes'); }
+function sair() {
+  if (estado.codigos.length > 0 && !confirm('Tem certeza? Os dados não enviados serão perdidos.')) return;
+  estado.loteAtual = ''; estado.codigos = []; estado.loteConfirmado = false;
+  desativarLeitor(); mostrarTela('screen-login');
+}
+
+// ── LOGIN ──
+function onLojaChange() {
+  const cod = document.getElementById('sel-loja').value;
+  document.getElementById('url-aviso').style.display = (cod && !urlLoja(cod)) ? 'block' : 'none';
+  if (cod && LOJAS[cod]) document.getElementById('inp-lote').placeholder = 'Bipe ou digite: ' + LOJAS[cod].prefixo + ' 0001';
+}
+function fazerLogin() {
+  const cod = document.getElementById('sel-loja').value.trim();
+  const nome = document.getElementById('inp-nome').value.trim();
+  if (!cod)  { toast('Selecione a loja', 'error'); return; }
+  if (!nome) { toast('Digite seu nome', 'error'); return; }
+  if (!urlLoja(cod)) { toast('Configure a URL desta loja primeiro', 'error'); irConfig(); return; }
+  estado.loja = cod; estado.prefixo = LOJAS[cod].prefixo; estado.nome = nome;
+  document.getElementById('header-info').textContent = nome + ' · ' + LOJAS[cod].nome;
+  document.getElementById('inp-lote').value = '';
+  document.getElementById('inp-lote').placeholder = 'Bipe ou digite: ' + estado.prefixo + ' 0001';
+  document.getElementById('btn-confirmar-lote').style.display = 'none';
+  document.getElementById('lote-icon').textContent = '📋';
+  atualizarPainel(null); renderizarCodigos(); atualizarBadgePendentes();
+  setTimeout(reenviarAutomatico, 500);
+  mostrarTela('screen-main');
+}
+
+// ── CAMPO LOTE ──
+function onLoteFocus()  { if (estado.leitorAtivo) desativarLeitor(); estado.loteEmEdicao = true; document.getElementById('lote-icon').textContent = '✏️'; }
+function onLoteBlur()   { estado.loteEmEdicao = false; if (!document.getElementById('inp-lote').value.trim()) document.getElementById('lote-icon').textContent = '📋'; }
+function onLoteInput() {
+  const val = document.getElementById('inp-lote').value.trim().toUpperCase();
+  document.getElementById('inp-lote').value = val;
+  const ok = ehCodigoLote(val);
+  document.getElementById('lote-icon').textContent = val ? (ok ? '✅' : '✏️') : '📋';
+  document.getElementById('btn-confirmar-lote').style.display = val ? 'block' : 'none';
+}
+function onLoteKeydown(e) {
+  if (e.key === 'Enter') { e.preventDefault(); const val = document.getElementById('inp-lote').value.trim().toUpperCase(); if (val) confirmarLote(val); setTimeout(() => ativarLeitor(), 200); }
+}
+function confirmarLoteManual() { const val = document.getElementById('inp-lote').value.trim().toUpperCase(); if (val) { confirmarLote(val); setTimeout(() => ativarLeitor(), 200); } }
+function ehCodigoLote(c) { return new RegExp('^' + (estado.prefixo || '[A-Z]{1,4}') + '[\\s-]?\\d{1,4}$', 'i').test(c); }
+function confirmarLote(codigo) {
+  if (estado.codigos.length > 0) { toast('Envie o lote atual antes de trocar', 'error'); document.getElementById('inp-lote').value = estado.loteAtual; return; }
+  if (estado.lotesEnviadosSessao.includes(codigo)) {
+    if (!confirm('⚠ ATENÇÃO: o lote ' + codigo + ' já foi enviado nesta sessão! Confirma releitura?')) {
+      document.getElementById('inp-lote').value = '';
+      document.getElementById('lote-icon').textContent = '📋';
+      return;
+    }
+  }
+  estado.loteAtual = codigo; estado.loteConfirmado = true;
+  document.getElementById('inp-lote').value = codigo;
+  document.getElementById('inp-lote').className = 'lote-ok';
+  document.getElementById('lote-icon').textContent = '✅';
+  document.getElementById('btn-confirmar-lote').style.display = 'none';
+  document.getElementById('step1-num').classList.add('done');
+  document.getElementById('painel-lote-val').textContent = codigo;
+  setStatus('ok', 'Lote ' + codigo + ' ativo — bipe os produtos'); vibrar(); toast('Lote ' + codigo + ' ativo', 'success');
+}
+
+// ── LEITOR ──
+function ativarLeitor() {
+  document.getElementById('inp-lote').blur();
+  const inp = document.getElementById('hidden-input'); inp.value = ''; inp.focus();
+  estado.leitorAtivo = true;
+  document.getElementById('btn-ativar').textContent = '📡 Leitor ativo — bipe o produto';
+  document.getElementById('btn-ativar').style.borderColor = 'var(--accent)';
+  document.getElementById('btn-ativar').style.color = 'var(--accent)';
+  setStatus('ok', 'Leitor ativo — aguardando bipagem');
+}
+function desativarLeitor() {
+  estado.leitorAtivo = false; document.getElementById('hidden-input').blur();
+  document.getElementById('btn-ativar').textContent = '📡 Ativar leitor de barras';
+  document.getElementById('btn-ativar').style.borderColor = '';
+  document.getElementById('btn-ativar').style.color = '';
+  setStatus('idle', 'Toque para ativar o leitor');
+}
+document.getElementById('hidden-input').addEventListener('input', function() { estado.bufferColetor += this.value; this.value = ''; });
+document.getElementById('hidden-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const agora = Date.now();
+    if (agora - estado.ultimoEnter < 500) { estado.bufferColetor = ''; return; } // ignora Enter duplo em <500ms
+    estado.ultimoEnter = agora;
+    const c = estado.bufferColetor.trim(); estado.bufferColetor = '';
+    if (c) processarCodigoProduto(c);
+  }
+});
+document.getElementById('hidden-input').addEventListener('blur', function() { if (estado.leitorAtivo) setTimeout(() => { if (estado.leitorAtivo) this.focus(); }, 100); });
+function processarCodigoProduto(codigo) {
+  if (ehCodigoLote(codigo)) { confirmarLote(codigo); return; }
+  if (!estado.loteAtual) { toast('Defina o LOTE primeiro!', 'error'); return; }
+  estado.codigos.unshift(codigo); atualizarPainel(codigo); renderizarCodigos(); vibrar();
+  setStatus('ok', estado.codigos.length + ' item(s) no lote');
+}
+
+// ── PAINEL ──
+function atualizarPainel(ult) {
+  document.getElementById('painel-num').textContent = estado.codigos.length;
+  const el = document.getElementById('painel-ultimo-codigo');
+  if (ult) {
+    el.textContent = ult; el.style.color = ''; el.style.fontStyle = ''; el.style.fontSize = '16px';
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 400);
+  } else { el.textContent = 'nenhum ainda'; el.style.color = 'var(--text-muted)'; el.style.fontStyle = 'italic'; el.style.fontSize = '13px'; }
+}
+
+// ── LISTA ──
+function renderizarCodigos() {
+  const area = document.getElementById('codes-area');
+  document.getElementById('codes-count').textContent = estado.codigos.length + ' código(s)';
+  if (estado.codigos.length === 0) { area.innerHTML = '<div class="codes-empty">Nenhum código lido ainda</div>'; return; }
+  area.innerHTML = estado.codigos.map((c, i) =>
+    `<div class="code-item${i===0?' novo':''}"><span class="code-num">${estado.codigos.length-i}</span><span class="code-val">${c}</span><button class="code-del" onclick="removerCodigo(${i})">×</button></div>`
+  ).join(''); area.scrollTop = 0;
+}
+function removerCodigo(i)  { estado.codigos.splice(i,1); atualizarPainel(estado.codigos[0]||null); renderizarCodigos(); }
+function limparLote() {
+  if (estado.codigos.length > 0 && !confirm('Apaga o lote e todos os códigos. Continuar?')) return;
+  estado.loteAtual=''; estado.codigos=[]; estado.loteConfirmado=false;
+  document.getElementById('inp-lote').value=''; document.getElementById('inp-lote').className='';
+  document.getElementById('lote-icon').textContent='📋'; document.getElementById('btn-confirmar-lote').style.display='none';
+  document.getElementById('step1-num').classList.remove('done'); document.getElementById('painel-lote-val').textContent='—';
+  atualizarPainel(null); renderizarCodigos(); setStatus('idle','Toque para ativar o leitor');
+}
+function limparCodigos() {
+  if (estado.codigos.length > 0 && !confirm('Apagar todos os ' + estado.codigos.length + ' códigos?')) return;
+  estado.codigos=[]; atualizarPainel(null); renderizarCodigos();
+}
+
+// ── ENVIO COM SALVAMENTO LOCAL ──
+async function enviarLote() {
+  if (!estado.loteAtual)        { toast('Defina o lote primeiro','error'); return; }
+  if (!estado.codigos.length)   { toast('Nenhum código para enviar','error'); return; }
+  const url = urlLoja(estado.loja);
+  if (!url) { toast('URL não configurada','error'); irConfig(); return; }
+  const payload = { loja:estado.loja, nome:estado.nome, lote:estado.loteAtual, codigos:[...estado.codigos].reverse(), timestamp:new Date().toLocaleString('pt-BR') };
+  document.getElementById('overlay').classList.add('show');
+  desativarLeitor();
+  const idFila = adicionarNaFila(payload); // salva ANTES de enviar
+  let ok = false;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000); // timeout 15s
+    const r = await fetch(url, {method:'POST', body:JSON.stringify(payload), signal:ctrl.signal});
+    clearTimeout(timer);
+    ok = (await r.text()).includes('OK') || r.ok;
+  } catch(e) {}
+  document.getElementById('overlay').classList.remove('show');
+  if (ok) { removerDaFila(idFila); estado.lotesEnviadosSessao.push(estado.loteAtual); toast('Lote ' + estado.loteAtual + ' enviado!','success'); vibrar(); }
+  else    { toast('Sem conexão — lote salvo no celular!','error'); vibrar(2); }
+  // Limpa sempre para o próximo lote
+  estado.loteAtual=''; estado.codigos=[]; estado.loteConfirmado=false;
+  document.getElementById('inp-lote').value=''; document.getElementById('inp-lote').className='';
+  document.getElementById('lote-icon').textContent='📋'; document.getElementById('btn-confirmar-lote').style.display='none';
+  document.getElementById('step1-num').classList.remove('done'); document.getElementById('painel-lote-val').textContent='—';
+  atualizarPainel(null); renderizarCodigos(); ativarLeitor();
+}
+
+// ── TELA PENDENTES ──
+function renderizarPendentes() {
+  const fila = carregarFila();
+  const lista = document.getElementById('lista-pendentes');
+  document.getElementById('btn-reenviar-todos').style.display = fila.length > 0 ? 'block' : 'none';
+  if (!fila.length) { lista.innerHTML = '<div style="text-align:center;padding:40px;color:var(--accent);font-size:14px;">Nenhum lote pendente!</div>'; return; }
+  lista.innerHTML = fila.map(item => `
+    <div style="background:var(--surface);border:1px solid var(--danger);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--accent)">${item.payload.lote}</span>
+        <span style="font-size:11px;color:var(--text-muted)">${item.salvoEm}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted)">${item.payload.codigos.length} produto(s) · ${item.payload.nome} · ${item.payload.loja}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="reenviarItem(${item.id})" style="padding:8px;font-size:12px;">↑ Reenviar</button>
+        <button class="btn btn-outline" onclick="descartarItem(${item.id})" style="padding:8px;font-size:12px;width:auto;flex:1;color:var(--danger);border-color:var(--danger);">Descartar</button>
+      </div>
+    </div>`).join('');
+}
+async function reenviarItem(id) {
+  const item = carregarFila().find(i => i.id === id); if (!item) return;
+  toast('Reenviando...','');
+  if (await tentarReenviar(item)) { removerDaFila(id); toast('Lote ' + item.payload.lote + ' enviado!','success'); }
+  else toast('Falhou. Verifique a conexão.','error');
+  renderizarPendentes();
+}
+async function reenviarTodos() {
+  const fila = carregarFila(); let ok = 0;
+  toast('Reenviando ' + fila.length + ' lote(s)...','');
+  for (const item of fila) { if (await tentarReenviar(item)) { removerDaFila(item.id); ok++; } }
+  toast(ok + ' enviado(s). ' + (fila.length-ok) + ' pendente(s).', ok>0?'success':'error');
+  renderizarPendentes();
+}
+function descartarItem(id) {
+  const item = carregarFila().find(i => i.id === id); if (!item) return;
+  if (!confirm('Descartar lote ' + item.payload.lote + '? Dados PERDIDOS permanentemente.')) return;
+  removerDaFila(id); renderizarPendentes();
+}
+
+// ── CONFIG ──
+function renderizarConfig() {
+  document.getElementById('config-lojas').innerHTML = Object.entries(LOJAS).map(([cod, info]) => {
+    const url = urlLoja(cod);
+    return `<div class="config-loja-bloco">
+      <div class="config-loja-titulo">${info.nome} (${cod})</div>
+      <div class="config-loja-url ${url?'configurada':''}" id="url-preview-${cod}">${url||'Não configurada'}</div>
+      <input type="text" id="url-inp-${cod}" placeholder="https://script.google.com/macros/s/..." value="${url}" autocomplete="off" autocorrect="off" style="font-size:12px;font-family:var(--mono);padding:10px 12px;">
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="salvarUrlLoja_ui('${cod}')" style="padding:10px;font-size:13px;">Salvar</button>
+        <button class="btn btn-outline" onclick="testarUrl('${cod}')" style="padding:10px;font-size:13px;width:auto;flex:1;">Testar</button>
+      </div></div>`;
+  }).join('');
+}
+function salvarUrlLoja_ui(cod) {
+  const url = document.getElementById('url-inp-'+cod).value.trim();
+  if (!url||!url.startsWith('https://script.google.com')) { toast('URL inválida','error'); return; }
+  salvarUrlLoja(cod,url);
+  document.getElementById('url-preview-'+cod).textContent = url;
+  document.getElementById('url-preview-'+cod).className = 'config-loja-url configurada';
+  toast(LOJAS[cod].nome+' salvo!','success');
+  if (document.getElementById('sel-loja').value===cod) document.getElementById('url-aviso').style.display='none';
+}
+async function testarUrl(cod) {
+  const url = document.getElementById('url-inp-'+cod).value.trim();
+  if (!url) { toast('Cole a URL primeiro','error'); return; }
+  const st=document.getElementById('config-status'), dot=document.getElementById('config-dot'), txt=document.getElementById('config-text');
+  st.style.display='flex'; dot.className='status-dot warn'; txt.textContent='Testando '+LOJAS[cod].nome+'...';
+  try {
+    const r = await fetch(url+'?test=1');
+    if (r.ok) { dot.className='status-dot ok'; txt.textContent=LOJAS[cod].nome+': OK!'; }
+    else { dot.className='status-dot err'; txt.textContent='Erro '+r.status; }
+  } catch(e) { dot.className='status-dot err'; txt.textContent='Não foi possível conectar.'; }
+}
+
+// ── HELPERS ──
+function setStatus(t,m) { document.getElementById('status-dot').className='status-dot '+t; document.getElementById('status-text').textContent=m; }
+function toast(msg,tipo='') { const el=document.getElementById('toast'); el.textContent=msg; el.className='show '+tipo; setTimeout(()=>{el.className=''},2800); }
+function vibrar(v=1) { if(navigator.vibrate) navigator.vibrate(v===1?60:[60,80,60]); }
+
+atualizarBadgePendentes();
+</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Inventário</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #09090b;
+  --surface:   #111113;
+  --surface2:  #18181b;
+  --border:    #27272a;
+  --border2:   #3f3f46;
+  --text:      #fafafa;
+  --muted:     #71717a;
+  --muted2:    #52525b;
+  --green:     #22c55e;
+  --green-dim: #22c55e18;
+  --blue:      #3b82f6;
+  --blue-dim:  #3b82f618;
+  --amber:     #f59e0b;
+  --amber-dim: #f59e0b18;
+  --red:       #ef4444;
+  --red-dim:   #ef444418;
+  --sans: 'Inter', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 0;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 12px var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text); }
+.logo-sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 24px; }
+.update-info { text-align: right; }
+.update-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.08em; }
+.update-time { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+.next-update { font-size: 10px; color: var(--muted2); margin-top: 2px; }
+.btn-refresh {
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--muted);
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-family: var(--sans);
+  cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+}
+.btn-refresh:hover { border-color: var(--green); color: var(--green); }
+.btn-refresh.loading { opacity: 0.5; pointer-events: none; }
+
+/* ── CONFIG BANNER ── */
+#config-banner {
+  background: var(--amber-dim);
+  border-bottom: 1px solid var(--amber);
+  padding: 14px 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+#config-banner input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); padding: 8px 12px; border-radius: 8px;
+  font-size: 13px; font-family: var(--mono); outline: none;
+}
+#config-banner input:focus { border-color: var(--amber); }
+#config-banner button {
+  background: var(--amber); color: #000; border: none; padding: 8px 20px;
+  border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+#config-banner span { font-size: 13px; color: var(--amber); font-weight: 500; }
+
+/* ── MAIN ── */
+.main { padding: 32px 40px 60px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+/* ── ERRO / VAZIO ── */
+.estado-vazio {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; gap: 16px; color: var(--muted);
+}
+.estado-vazio svg { opacity: 0.3; }
+.estado-vazio h2 { font-size: 18px; color: var(--muted); font-weight: 500; }
+.estado-vazio p { font-size: 14px; color: var(--muted2); }
+
+/* ── PROGRESSO PRINCIPAL ── */
+.hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+.hero-divider { width: 1px; background: var(--border); margin: 0 32px; }
+
+.hero-block { display: flex; flex-direction: column; gap: 8px; }
+.hero-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.hero-value {
+  font-size: 56px; font-weight: 700; font-family: var(--mono);
+  line-height: 1; letter-spacing: -0.02em;
+}
+.hero-value.green { color: var(--green); }
+.hero-value.blue  { color: var(--blue); }
+.hero-value.amber { color: var(--amber); }
+.hero-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Barra de progresso */
+.barra-wrap { margin-top: 16px; }
+.barra-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+.barra-track {
+  height: 8px; background: var(--surface2); border-radius: 100px;
+  border: 1px solid var(--border); overflow: hidden;
+}
+.barra-fill {
+  height: 100%; border-radius: 100px;
+  background: linear-gradient(90deg, var(--green) 0%, #16a34a 100%);
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px var(--green-dim);
+  min-width: 2px;
+}
+.barra-fill.blue-fill { background: linear-gradient(90deg, var(--blue) 0%, #2563eb 100%); box-shadow: 0 0 12px var(--blue-dim); }
+
+/* ── GRID DE CARDS ── */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: var(--border2); }
+.card-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.card-value { font-size: 30px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+.card-value.green { color: var(--green); }
+.card-value.blue  { color: var(--blue); }
+.card-value.amber { color: var(--amber); }
+.card-value.red   { color: var(--red); }
+.card-sub { font-size: 12px; color: var(--muted); }
+.card-icon { font-size: 20px; margin-bottom: 4px; }
+
+/* ── SEÇÃO ── */
+.secao-titulo {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+/* ── TABELA FUNCIONÁRIOS ── */
+.tabela-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.tabela { width: 100%; border-collapse: collapse; }
+.tabela th {
+  background: var(--surface2); padding: 12px 20px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  text-align: left; border-bottom: 1px solid var(--border);
+}
+.tabela td {
+  padding: 14px 20px; font-size: 14px; color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.tabela tr:last-child td { border-bottom: none; }
+.tabela tr:hover td { background: var(--surface2); }
+.tabela td.mono { font-family: var(--mono); font-size: 13px; }
+.tabela td.green { color: var(--green); font-weight: 600; font-family: var(--mono); }
+.tabela td.blue  { color: var(--blue);  font-weight: 600; font-family: var(--mono); }
+.tabela td.muted { color: var(--muted); font-size: 12px; }
+
+.mini-barra-track { height: 4px; background: var(--border); border-radius: 100px; margin-top: 4px; min-width: 80px; }
+.mini-barra-fill  { height: 4px; background: var(--green); border-radius: 100px; transition: width 1s ease; }
+
+/* ── PREVISÃO ── */
+.previsao-card {
+  background: var(--green-dim); border: 1px solid var(--green);
+  border-radius: 12px; padding: 20px 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.previsao-card.sem-meta {
+  background: var(--surface); border-color: var(--border);
+}
+.previsao-icon { font-size: 28px; flex-shrink: 0; }
+.previsao-texto h3 { font-size: 15px; font-weight: 600; color: var(--green); }
+.previsao-texto h3.neutro { color: var(--muted); }
+.previsao-texto p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* ── TEMPO ── */
+.tempo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ── FOOTER ── */
+.footer {
+  text-align: center; padding: 20px;
+  font-size: 11px; color: var(--muted2);
+  border-top: 1px solid var(--border);
+}
+
+/* ── LOADING SKELETON ── */
+.skel { background: var(--surface2); border-radius: 6px; animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .hero { grid-template-columns: 1fr; gap: 24px; }
+  .hero-divider { display: none; }
+  .main { padding: 20px; }
+  .header { padding: 16px 20px; }
+  #config-banner { padding: 12px 20px; }
+}
+@media (max-width: 600px) {
+  .cards { grid-template-columns: 1fr 1fr; }
+  .hero-value { font-size: 40px; }
+  .tempo-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-dot" id="status-dot"></div>
+    <div>
+      <div class="logo-text" id="header-loja">Dashboard de Inventário</div>
+      <div class="logo-sub" id="header-sub">Acompanhamento em tempo real</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="update-info">
+      <div class="update-label">Última atualização</div>
+      <div class="update-time" id="ultima-atualizacao">—</div>
+      <div class="next-update" id="proximo-update">Próxima em 30 min</div>
+    </div>
+    <button class="btn-refresh" id="btn-refresh" onclick="carregar()">
+      <span id="refresh-icon">↻</span> Atualizar
+    </button>
+  </div>
+</div>
+
+<!-- Banner de configuração (aparece só se não tiver URL) -->
+<div id="config-banner" style="display:none">
+  <span>⚙ Configure a URL do Apps Script para carregar os dados:</span>
+  <input type="text" id="inp-url" placeholder="https://script.google.com/macros/s/.../exec">
+  <button onclick="salvarUrl()">Salvar</button>
+</div>
+
+<div class="main" id="main-content">
+  <!-- Preenchido pelo JS -->
+  <div class="estado-vazio" id="estado-inicial">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <h2>Carregando dados...</h2>
+    <p>Buscando informações da planilha</p>
+  </div>
+</div>
+
+<div class="footer">
+  Dashboard de Inventário — Lojas Paludo &nbsp;·&nbsp; Atualiza automaticamente a cada 30 minutos
+</div>
+
+<script>
+const CHAVE_URL = 'dashboard_inventario_url';
+let dadosAtuais = null;
+let timerProximo = null;
+let segsRestantes = 1800;
+
+function getUrl() { return localStorage.getItem(CHAVE_URL) || ''; }
+function salvarUrl() {
+  const url = document.getElementById('inp-url').value.trim();
+  if (!url || !url.startsWith('https://script.google.com')) {
+    alert('URL inválida. Deve começar com https://script.google.com'); return;
+  }
+  localStorage.setItem(CHAVE_URL, url);
+  document.getElementById('config-banner').style.display = 'none';
+  carregar();
+}
+
+// ── FORMATAÇÃO ──────────────────────────────────────
+function fmtNum(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('pt-BR');
+}
+function fmtMin(m) {
+  if (!m || m <= 0) return '—';
+  const h = Math.floor(m / 60), min = m % 60;
+  return (h > 0 ? h + 'h ' : '') + min + 'min';
+}
+function contaRegressiva(segs) {
+  const h = Math.floor(segs / 3600);
+  const m = Math.floor((segs % 3600) / 60);
+  const s = segs % 60;
+  if (h > 0) return h + 'h ' + m + 'min';
+  if (m > 0) return m + 'min ' + s + 's';
+  return s + 's';
+}
+
+// ── CARREGAR DADOS ───────────────────────────────────
+async function carregar() {
+  const url = getUrl();
+  if (!url) {
+    document.getElementById('config-banner').style.display = 'flex';
+    document.getElementById('estado-inicial').innerHTML =
+      '<h2 style="color:var(--amber)">URL não configurada</h2><p>Cole a URL do Apps Script no campo acima e clique em Salvar.</p>';
+    return;
+  }
+
+  const btn = document.getElementById('btn-refresh');
+  const icon = document.getElementById('refresh-icon');
+  btn.classList.add('loading');
+  icon.style.transform = 'rotate(360deg)';
+  icon.style.transition = 'transform 0.6s ease';
+  setTimeout(() => { icon.style.transform = ''; icon.style.transition = ''; }, 700);
+
+  try {
+    const resp = await fetch(url + '?dados=1', { cache: 'no-store' });
+    const dados = await resp.json();
+    if (dados.erro) throw new Error(dados.erro);
+    dadosAtuais = dados;
+    renderizar(dados);
+    document.getElementById('ultima-atualizacao').textContent = new Date().toLocaleTimeString('pt-BR');
+    iniciarContagem();
+  } catch(e) {
+    mostrarErro('Não foi possível carregar os dados. Verifique a URL e a conexão.');
+    console.error(e);
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+function iniciarContagem() {
+  if (timerProximo) clearInterval(timerProximo);
+  segsRestantes = 1800;
+  timerProximo = setInterval(() => {
+    segsRestantes--;
+    document.getElementById('proximo-update').textContent = 'Próxima em ' + contaRegressiva(segsRestantes);
+    if (segsRestantes <= 0) { carregar(); }
+  }, 1000);
+}
+
+function mostrarErro(msg) {
+  document.getElementById('main-content').innerHTML = `
+    <div class="estado-vazio">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      <h2>Erro ao carregar</h2>
+      <p>${msg}</p>
+    </div>`;
+}
+
+// ── RENDERIZAR ───────────────────────────────────────
+function renderizar(d) {
+  const pctLotes = parseFloat(d.pctLotes) || 0;
+  const pctProd  = parseFloat(d.pctProdutos) || 0;
+  const temMeta  = d.metaProdutos > 0;
+
+  document.getElementById('header-loja').textContent = 'Inventário — ' + d.loja;
+  document.getElementById('header-sub').textContent  = d.prefixo + ' · ' + fmtNum(d.totalLotes) + ' lotes · Iniciado em ' + (d.inicio || '—');
+
+  let html = '';
+
+  // ── HERO: LOTES ──
+  html += `
+  <div class="hero">
+    <div class="hero-block">
+      <div class="hero-label">Lotes lidos</div>
+      <div class="hero-value green">${fmtNum(d.lidos)}</div>
+      <div class="hero-sub">de ${fmtNum(d.totalLotes)} lotes totais · ${fmtNum(d.faltandoLotes)} faltando</div>
+      <div class="barra-wrap">
+        <div class="barra-labels"><span>0%</span><span>${pctLotes}%</span><span>100%</span></div>
+        <div class="barra-track"><div class="barra-fill" style="width:${pctLotes}%"></div></div>
+      </div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-block">
+      <div class="hero-label">Produtos lidos</div>
+      <div class="hero-value blue">${fmtNum(d.totalProdutos)}</div>
+      <div class="hero-sub">${temMeta ? 'de ' + fmtNum(d.metaProdutos) + ' esperados' : 'Meta não definida'}</div>
+      ${temMeta ? `
+      <div class="barra-wrap">
+        <div class="barra-labels"><span>0%</span><span>${pctProd}%</span><span>100%</span></div>
+        <div class="barra-track"><div class="barra-fill blue-fill" style="width:${pctProd}%"></div></div>
+      </div>` : ''}
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-block">
+      <div class="hero-label">Previsão de conclusão</div>
+      ${d.previsaoMin != null
+        ? `<div class="hero-value amber">${fmtMin(d.previsaoMin)}</div><div class="hero-sub">restantes no ritmo atual</div>`
+        : `<div class="hero-value" style="color:var(--muted);font-size:32px">${temMeta ? 'Calculando...' : 'Sem meta'}</div><div class="hero-sub">${temMeta ? 'Aguardando dados suficientes' : 'Defina a meta na aba Config'}</div>`
+      }
+    </div>
+  </div>`;
+
+  // ── CARDS MÉTRICAS ──
+  html += `<div class="cards">
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <div class="card-label">Ritmo atual — Lotes</div>
+      <div class="card-value green">${d.ritmoLotes > 0 ? d.ritmoLotes : '—'}</div>
+      <div class="card-sub">lotes por hora</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📦</div>
+      <div class="card-label">Ritmo atual — Produtos</div>
+      <div class="card-value blue">${d.ritmoProd > 0 ? fmtNum(d.ritmoProd) : '—'}</div>
+      <div class="card-sub">produtos por hora</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">📅</div>
+      <div class="card-label">Dias de inventário</div>
+      <div class="card-value amber">${d.diasCount || '—'}</div>
+      <div class="card-sub">${d.diasCount === 1 ? 'dia trabalhado' : 'dias trabalhados'}</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⏱</div>
+      <div class="card-label">Horas efetivas</div>
+      <div class="card-value" style="color:var(--text)">${fmtMin(d.minsTrabalhados)}</div>
+      <div class="card-sub">tempo de coleta ativo</div>
+    </div>
+  </div>`;
+
+  // ── FUNCIONÁRIOS ──
+  if (d.funcionarios && d.funcionarios.length > 0) {
+    html += `<div>
+      <div class="secao-titulo">Desempenho por funcionário</div>
+      <div class="tabela-wrap">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Funcionário</th>
+              <th>Lotes lidos</th>
+              <th>% do total</th>
+              <th>Produtos</th>
+              <th>Participação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${d.funcionarios.map((f, i) => `
+            <tr>
+              <td><strong>${f.nome}</strong>${i === 0 ? ' <span style="font-size:10px;color:var(--amber)">↑ líder</span>' : ''}</td>
+              <td class="green">${fmtNum(f.lotes)}</td>
+              <td class="mono">${f.pct}%</td>
+              <td class="blue">${fmtNum(f.produtos)}</td>
+              <td>
+                <div class="mini-barra-track">
+                  <div class="mini-barra-fill" style="width:${Math.min(parseFloat(f.pct),100)}%"></div>
+                </div>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // ── ATUALIZADO EM ──
+  html += `<div style="text-align:center;font-size:12px;color:var(--muted2);padding-top:8px;">
+    Dados de ${d.ultimaAtualizacao} &nbsp;·&nbsp; Próxima atualização automática em <span id="proximo-inline">30 min</span>
+  </div>`;
+
+  document.getElementById('main-content').innerHTML = html;
+
+  // Anima as barras após render
+  setTimeout(() => {
+    document.querySelectorAll('.barra-fill').forEach(el => {
+      const w = el.style.width;
+      el.style.width = '0%';
+      setTimeout(() => { el.style.width = w; }, 50);
+    });
+  }, 100);
+}
+
+// ── INIT ────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const url = getUrl();
+  if (!url) {
+    document.getElementById('config-banner').style.display = 'flex';
+    document.getElementById('estado-inicial').innerHTML =
+      `<h2 style="color:var(--amber)">Configure a URL para começar</h2>
+       <p>Cole a URL do Apps Script no campo amarelo acima e clique em Salvar.</p>`;
+  } else {
+    carregar();
+  }
+});
+</script>
+</body>
+</html>
