@@ -116,6 +116,16 @@
   #toast.success { border-color: var(--accent); color: var(--accent); }
   #toast.error { border-color: var(--danger); color: var(--danger); }
 
+  /* SCANNER QR */
+  #qr-overlay { display:none; position:fixed; inset:0; background:#000; z-index:600; flex-direction:column; }
+  #qr-overlay.show { display:flex; }
+  #qr-video { flex:1; width:100%; object-fit:cover; background:#000; }
+  .qr-frame { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:70vw; max-width:280px; aspect-ratio:1; border:3px solid var(--accent); border-radius:16px; box-shadow:0 0 0 2000px rgba(0,0,0,0.5); pointer-events:none; }
+  .qr-topbar { position:absolute; top:0; left:0; right:0; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; z-index:2; }
+  .qr-title { color:#fff; font-size:14px; font-weight:600; }
+  .qr-close { background:rgba(255,255,255,0.15); border:none; color:#fff; width:34px; height:34px; border-radius:50%; font-size:18px; cursor:pointer; }
+  .qr-hint { position:absolute; bottom:40px; left:0; right:0; text-align:center; color:#fff; font-size:13px; opacity:0.8; z-index:2; }
+
   /* OVERLAY */
   #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 500; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
   #overlay.show { display: flex; }
@@ -136,9 +146,7 @@
       <label for="sel-loja">Loja</label>
       <select id="sel-loja" onchange="onLojaChange()">
         <option value="">Selecione a loja...</option>
-        <!-- ══ ADICIONAR LOJAS AQUI ══ -->
-        <option value="TA">Taquara (TA)</option>
-        <!-- ══════════════════════════ -->
+        <!-- Opções geradas automaticamente a partir de LOJAS no JS -->
       </select>
     </div>
     <div>
@@ -274,13 +282,45 @@
 <!-- Input oculto para coletor bluetooth (produtos) -->
 <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position:absolute;opacity:0;height:1px;width:1px;top:-100px;">
 
+<!-- SCANNER QR -->
+<div id="qr-overlay">
+  <div class="qr-topbar">
+    <span class="qr-title" id="qr-title">Escanear QR</span>
+    <button class="qr-close" onclick="fecharScannerQR()">✕</button>
+  </div>
+  <video id="qr-video" autoplay playsinline muted></video>
+  <div class="qr-frame"></div>
+  <div class="qr-hint">Aponte a câmera para o QR Code da URL</div>
+</div>
+<canvas id="qr-canvas" style="display:none;"></canvas>
+
 <div id="overlay"><div class="spinner"></div><p class="overlay-text">Enviando para a planilha...</p></div>
 <div id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 <script>
 const LOJAS = {
-  'TA': { nome: 'Taquara',    prefixo: 'TA' }
+  'CB': { nome: 'Campo Bom',   prefixo: 'CB' },
+  'PB': { nome: 'Parobé',      prefixo: 'PB' },
+  'SA': { nome: 'Sapiranga',   prefixo: 'SA' },
+  'IG': { nome: 'Igrejinha',   prefixo: 'IG' },
+  'DI': { nome: 'Dois Irmãos', prefixo: 'DI' },
+  'ES': { nome: 'Esteio',      prefixo: 'ES' },
+  'TA': { nome: 'Taquara',     prefixo: 'TA' },
+  'SS': { nome: 'Sapucaia',    prefixo: 'SS' },
+  'GR': { nome: 'Gravataí',    prefixo: 'GR' },
+  'CA': { nome: 'Canoas',      prefixo: 'CA' }
 };
+
+function popularSelectLojas() {
+  const sel = document.getElementById('sel-loja');
+  Object.entries(LOJAS).forEach(([cod, info]) => {
+    const opt = document.createElement('option');
+    opt.value = cod; opt.textContent = info.nome + ' (' + cod + ')';
+    sel.appendChild(opt);
+  });
+}
+popularSelectLojas();
 
 let estado = {
   loja: '', prefixo: '', nome: '', loteAtual: '', codigos: [],
@@ -546,7 +586,8 @@ function renderizarConfig() {
       <div class="config-loja-url ${url?'configurada':''}" id="url-preview-${cod}">${url||'Não configurada'}</div>
       <input type="text" id="url-inp-${cod}" placeholder="https://script.google.com/macros/s/..." value="${url}" autocomplete="off" autocorrect="off" style="font-size:12px;font-family:var(--mono);padding:10px 12px;">
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="salvarUrlLoja_ui('${cod}')" style="padding:10px;font-size:13px;">Salvar</button>
+        <button class="btn btn-outline" onclick="abrirScannerQR('${cod}')" style="padding:10px;font-size:13px;width:auto;">📷 QR</button>
+        <button class="btn" onclick="salvarUrlLoja_ui('${cod}')" style="padding:10px;font-size:13px;width:auto;flex:1;">Salvar</button>
         <button class="btn btn-outline" onclick="testarUrl('${cod}')" style="padding:10px;font-size:13px;width:auto;flex:1;">Testar</button>
       </div></div>`;
   }).join('');
@@ -570,6 +611,55 @@ async function testarUrl(cod) {
     if (r.ok) { dot.className='status-dot ok'; txt.textContent=LOJAS[cod].nome+': OK!'; }
     else { dot.className='status-dot err'; txt.textContent='Erro '+r.status; }
   } catch(e) { dot.className='status-dot err'; txt.textContent='Não foi possível conectar.'; }
+}
+
+// ── SCANNER QR (config: ler URL do Apps Script) ──
+let qrStream = null, qrLoop = null, qrCodAlvo = '';
+async function abrirScannerQR(cod) {
+  qrCodAlvo = cod;
+  document.getElementById('qr-title').textContent = 'Escanear QR — ' + (LOJAS[cod] ? LOJAS[cod].nome : cod);
+  document.getElementById('qr-overlay').classList.add('show');
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('qr-video');
+    video.srcObject = qrStream;
+    await video.play();
+    loopScannerQR();
+  } catch (e) {
+    toast('Não foi possível acessar a câmera', 'error');
+    fecharScannerQR();
+  }
+}
+function loopScannerQR() {
+  const video = document.getElementById('qr-video'), canvas = document.getElementById('qr-canvas');
+  const tick = () => {
+    if (!qrStream) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(img.data, img.width, img.height);
+      if (code && code.data) { processarQR(code.data.trim()); return; }
+    }
+    qrLoop = requestAnimationFrame(tick);
+  };
+  qrLoop = requestAnimationFrame(tick);
+}
+function processarQR(texto) {
+  if (!texto.startsWith('https://script.google.com')) {
+    toast('QR lido não é uma URL válida do Apps Script', 'error');
+    return;
+  }
+  document.getElementById('url-inp-' + qrCodAlvo).value = texto;
+  fecharScannerQR();
+  salvarUrlLoja_ui(qrCodAlvo);
+  vibrar();
+}
+function fecharScannerQR() {
+  if (qrLoop) cancelAnimationFrame(qrLoop);
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  document.getElementById('qr-overlay').classList.remove('show');
 }
 
 // ── HELPERS ──
